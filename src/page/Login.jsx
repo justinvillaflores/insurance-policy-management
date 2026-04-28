@@ -8,7 +8,7 @@ const Login = () => {
 
     const handleLogin = (e) => {
         e.preventDefault();
-        // ito logic: para diretso na sa dashboard
+        // Frontend logic: kahit walang input, papasok na ito sa dashboard
         navigate('/dashboard');
     };
 
@@ -25,26 +25,28 @@ const Login = () => {
                     </div>
 
                     <form className="space-y-6" onSubmit={handleLogin}>
+                        {/* Username Field */}
                         <div className="space-y-2">
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Username / Email</label>
                             <div className="relative group">
                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
                                 <input
                                     type="text"
-                                    required
+                                    // TINANGGAL ANG 'required' DITO
                                     className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 font-medium text-sm shadow-sm"
                                     placeholder="n.john@email.com"
                                 />
                             </div>
                         </div>
 
+                        {/* Password Field */}
                         <div className="space-y-2">
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Password</label>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
                                 <input
                                     type={showPassword ? "text" : "password"}
-                                    required
+                                    // TINANGGAL ANG 'required' DITO
                                     className="w-full pl-12 pr-12 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 font-medium text-sm shadow-sm"
                                     placeholder="••••••••••••"
                                 />
