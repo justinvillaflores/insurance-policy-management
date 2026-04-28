@@ -32,7 +32,6 @@ const Login = () => {
                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
                                 <input
                                     type="text"
-                                    // TINANGGAL ANG 'required' DITO
                                     className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 font-medium text-sm shadow-sm"
                                     placeholder="n.john@email.com"
                                 />
@@ -46,7 +45,6 @@ const Login = () => {
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
                                 <input
                                     type={showPassword ? "text" : "password"}
-                                    // TINANGGAL ANG 'required' DITO
                                     className="w-full pl-12 pr-12 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 font-medium text-sm shadow-sm"
                                     placeholder="••••••••••••"
                                 />
