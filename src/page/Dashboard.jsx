@@ -1,232 +1,226 @@
-import { useState } from 'react';
-import {
-    LayoutDashboard, FileText, Clock, CreditCard,
-    MessageSquare, User, Search, Bell, Plus,
-    ChevronRight, HelpCircle, LogOut, ChevronUp, AlertCircle
-} from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useContext } from 'react';
+import { Search, Plus, ExternalLink, SearchX, Shield, Users, Banknote, Clock, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import Sidebar from '../components/Sidebar';
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const { userData } = useContext(AuthContext);
 
-    const handleLogout = () => {
-        console.log("Logging out...");
-        navigate('/login');
+    const [policies, setPolicies] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    const [stats, setStats] = useState({
+        totalPolicies: 0,
+        activeUsers: 0,
+        monthlyRevenue: 0,
+        pendingClaims: 0
+    });
+
+    const fetchDashboardData = async () => {
+        setLoading(true);
+        try {
+            const authToken = userData?.token || 'secure-admin-token';
+
+            const policiesRes = await fetch(`http://localhost/insurance-api/api/admin/policies.php?token=${authToken}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const policiesData = await policiesRes.json();
+            let fetchedPolicies = policiesData.success && policiesData.data ? policiesData.data : [];
+            setPolicies(fetchedPolicies);
+
+            let registeredUsersCount = 0;
+            try {
+                const usersRes = await fetch(`http://localhost/insurance-api/api/users/index.php?token=${authToken}`, { method: 'GET' });
+                const usersData = await usersRes.json();
+                if (usersData.success && usersData.data) {
+                    registeredUsersCount = usersData.data.length;
+                } else {
+                    registeredUsersCount = [...new Set(fetchedPolicies.map(p => p.client_email).filter(Boolean))].length;
+                }
+            } catch (e) {
+                registeredUsersCount = [...new Set(fetchedPolicies.map(p => p.client_email).filter(Boolean))].length;
+            }
+
+            let openClaimsCount = 0;
+            try {
+                const claimsRes = await fetch(`http://localhost/insurance-api/api/reports/claims-status.php?token=${authToken}`, { method: 'GET' });
+                const claimsData = await claimsRes.json();
+                if (claimsData.success && claimsData.summary) {
+                    const openRow = claimsData.summary.find(r => r.status && (r.status.toLowerCase() === 'open' || r.status.toLowerCase() === 'pending'));
+                    openClaimsCount = openRow ? parseInt(openRow.total) : 0;
+                }
+            } catch (e) {
+                openClaimsCount = 0;
+            }
+
+            let totalRevenue = 0;
+            try {
+                const revenueRes = await fetch(`http://localhost/insurance-api/api/reports/premium-collection.php?token=${authToken}`, { method: 'GET' });
+                const revenueData = await revenueRes.json();
+                if (revenueData.success && revenueData.report) {
+                    totalRevenue = revenueData.report.reduce((sum, item) => sum + parseFloat(item.total_collected || 0), 0);
+                } else {
+                    totalRevenue = fetchedPolicies.filter(p => p.status === 'ACTIVE').reduce((sum, p) => sum + parseFloat(p.premium || 0), 0);
+                }
+            } catch (e) {
+                totalRevenue = fetchedPolicies.filter(p => p.status === 'ACTIVE').reduce((sum, p) => sum + parseFloat(p.premium || 0), 0);
+            }
+
+            setStats({
+                totalPolicies: fetchedPolicies.length,
+                activeUsers: registeredUsersCount,
+                monthlyRevenue: totalRevenue,
+                pendingClaims: openClaimsCount
+            });
+
+        } catch (error) {
+            console.error("Dashboard synchronization failure:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
+    useEffect(() => {
+        if (!userData) {
+            navigate('/login');
+            return;
+        }
+        fetchDashboardData();
+    }, [userData, navigate]);
+
+    const filteredPolicies = (Array.isArray(policies) ? policies : []).filter(p =>
+            p && (
+                p.type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p.model?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p.id?.toString().includes(searchQuery) ||
+                p.client_email?.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+    );
+
     return (
-        <div className="min-h-screen bg-slate-50 flex">
-            {/* logout confirmation */}
-            {showLogoutConfirm && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"></div>
-
-                    <div className="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 border border-slate-100 animate-in zoom-in-95 duration-200">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
-                                <AlertCircle size={32} className="text-red-500" />
-                            </div>
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">Confirm Logout</h3>
-                            <p className="text-sm text-slate-500 font-medium mb-8">Are you sure you want to log out of your account?</p>
-
-                            <div className="flex flex-col w-full gap-3">
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full py-4 bg-red-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-red-600 transition-all shadow-lg shadow-red-100"
-                                >
-                                    Yes, Log me out
-                                </button>
-                                <button
-                                    onClick={() => setShowLogoutConfirm(false)}
-                                    className="w-full py-4 bg-slate-50 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-100 transition-all"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
+        <div className="min-h-screen bg-slate-50 flex overflow-hidden relative font-sans">
+            <Sidebar userDisplayName={userData?.full_name || userData?.username || 'Admin'} />
+            <main className="flex-1 overflow-y-auto h-screen w-full bg-slate-50">
+                <header className="h-auto lg:h-16 bg-white border-b border-slate-200 flex flex-col lg:flex-row items-center justify-between px-6 py-4 lg:py-0 sticky top-0 z-30 gap-4">
+                    <h1 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] lg:block hidden">Dashboard Overview</h1>
+                    <div className="flex items-center gap-3 w-full lg:w-auto">
+                        <div className="relative flex-1 lg:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search overview records..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border-none rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none font-bold"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Sidebar */}
-            <aside className="w-64 bg-white border-r border-slate-200 hidden lg:flex flex-col sticky top-0 h-screen">
-                <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">I</div>
-                    <span className="text-xl font-bold text-slate-900">InsureGuard</span>
-                </div>
-
-                <nav className="flex-1 p-4 space-y-2 mt-4">
-                    <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm bg-blue-600 text-white shadow-lg shadow-blue-100 text-left transition-all cursor-default">
-                        <LayoutDashboard size={20}/> <span>Dashboard</span>
-                    </button>
-                    <Link to="/policies" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all">
-                        <FileText size={20}/> <span>Policies</span>
-                    </Link>
-                    <Link to="/claims" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all">
-                        <Clock size={20}/> <span>Claims</span>
-                    </Link>
-                    <Link to="/payments" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all">
-                        <CreditCard size={20}/> <span>Payments</span>
-                    </Link>
-                    <Link to="/messages" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all">
-                        <MessageSquare size={20}/> <span>Messages</span>
-                    </Link>
-                    <Link to="/profiles" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all">
-                        <User size={20}/> <span>Profiles</span>
-                    </Link>
-                    <Link to="/help" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all">
-                        <HelpCircle size={20}/> <span>Help Center</span>
-                    </Link>
-                </nav>
-
-                {/* Interactive Profile Section */}
-                <div className="p-4 border-t border-slate-100 relative">
-                    {/* Logout Dropdown Toggle */}
-                    {isProfileOpen && (
-                        <div className="absolute bottom-20 left-4 right-4 bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/50 p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-                            <button
-                                onClick={() => {
-                                    setShowLogoutConfirm(true);
-                                    setIsProfileOpen(false);
-                                }}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm text-red-500 hover:bg-red-50 transition-all text-left"
-                            >
-                                <LogOut size={18}/> <span>Sign Out</span>
-                            </button>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className={`w-full flex items-center justify-between p-2 rounded-2xl transition-all ${isProfileOpen ? 'bg-slate-100' : 'hover:bg-slate-50'}`}
-                    >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-[10px] font-black text-slate-500 shrink-0">JV</div>
-                            <div className="text-left overflow-hidden">
-                                <p className="text-sm font-bold text-slate-900 truncate">Justin M. V.</p>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Standard Plan</p>
-                            </div>
-                        </div>
-                        <ChevronUp size={16} className={`text-slate-400 transition-transform ${isProfileOpen ? 'rotate-0' : 'rotate-180'}`} />
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main content */}
-            <main className="flex-1 overflow-y-auto">
-                <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
-                    <h1 className="text-lg font-bold text-slate-800 uppercase tracking-tight">Dashboard</h1>
-                    <div className="flex items-center gap-6">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input type="text" placeholder="Search..." className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 w-64 outline-none transition-all" />
-                        </div>
-                        <button className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition">
-                            <Bell size={20} />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-                        </button>
-                        <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100">
-                            <Plus size={18} /> New Policy
+                        <button onClick={() => navigate('/policies')} className="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-lg shrink-0">
+                            <Plus size={16} /> <span className="hidden sm:inline">Manage Policies</span>
                         </button>
                     </div>
                 </header>
 
-                <div className="p-8 max-w-6xl mx-auto space-y-8">
+                <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
                     <div>
-                        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Welcome back, Justin!</h2>
-                        <div className="w-20 h-1.5 bg-blue-600 rounded-full mt-2"></div>
+                        <h2 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tight">Welcome, Administrator!</h2>
+                        <div className="w-16 h-1.5 bg-blue-600 rounded-full mt-2"></div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard label="ACTIVE POLICIES" value="3" sub="All current" color="blue" />
-                        <StatCard label="PENDING CLAIMS" value="1" sub="In review" color="orange" />
-                        <StatCard label="PAYMENT DUE" value="$145.50" sub="Due Apr 17" color="green" />
-                    </div>
-
-                    <section>
-                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quick Actions</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <ActionButton label="FILE CLAIM" linkTo="/claims" />
-                            <ActionButton label="RENEW" linkTo="/policies" />
-                            <ActionButton label="PAY BILL" linkTo="/payments" />
-                            <ActionButton label="ID CARD" linkTo="/dashboard" />
-                        </div>
-                    </section>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                                <h3 className="font-bold text-slate-900">Active Policies List</h3>
-                                <Link to="/policies" className="text-xs font-bold text-blue-600 hover:underline px-3 py-1 bg-blue-50 rounded-lg transition uppercase">VIEW ALL</Link>
-                            </div>
-                            <div className="divide-y divide-slate-50">
-                                <PolicyItem title="Life Insurance" id="POL-8821" status="ACTIVE" />
-                                <PolicyItem title="Vehicle Shield" id="POL-4412" status="ACTIVE" />
-                                <PolicyItem title="Home Protection" id="POL-0992" status="ACTIVE" />
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-                            <h3 className="font-bold text-slate-900 mb-6 border-b border-slate-100 pb-4">Recent Activity</h3>
-                            <div className="space-y-6">
-                                <ActivityItem text="Premium payment received" time="2 hours ago" />
-                                <ActivityItem text="Claim #CL-102 updated" time="Yesterday" />
-                                <ActivityItem text="New policy document added" time="3 days ago" />
-                            </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-10">
+                        <StatCard title="Total Policies" value={stats.totalPolicies} icon={<Shield className="text-blue-600" size={20} />} trend="System Wide" />
+                        <StatCard title="Active Users" value={stats.activeUsers} icon={<Users className="text-emerald-600" size={20} />} trend="Registered Clients" />
+                        <StatCard title="Total Collection" value={`₱${Number(stats.monthlyRevenue).toLocaleString('en-US', { minimumFractionDigits: 2 })}`} icon={<Banknote className="text-orange-600" size={20} />} trend="Encrypted Store" />
+                        <div onClick={() => navigate('/claims')} className="cursor-pointer">
+                            <StatCard title="Pending Claims" value={stats.pendingClaims} icon={<Clock className="text-red-600" size={20} />} trend="Requires Review" />
                         </div>
                     </div>
+
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+                            <Loader2 className="animate-spin mb-4" size={40} />
+                            <p className="font-bold text-[10px] uppercase tracking-[0.3em]">Querying Engine Parameters...</p>
+                        </div>
+                    ) : (
+                        <section className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Recent Policy Records ({filteredPolicies.length})</h3>
+                            </div>
+
+                            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden mb-10">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse min-w-[750px]">
+                                        <thead className="bg-slate-50/50 border-b border-slate-100">
+                                        <tr>
+                                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Policy ID</th>
+                                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Assignment</th>
+                                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Coverage Type</th>
+                                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Premium Rate</th>
+                                            <th className="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                        {filteredPolicies.length > 0 ? (
+                                            filteredPolicies.map((policy) => (
+                                                <tr key={policy.id} className="hover:bg-slate-50/50 transition-colors group text-sm">
+                                                    <td className="p-5 text-xs font-bold text-blue-600">#POL-{policy.id?.toString().padStart(4, '0')}</td>
+                                                    <td className="p-5 font-bold text-slate-900">
+                                                        <span className="block">{policy.client_email || `User #${policy.user_id || 'Unknown'}`}</span>
+                                                        <span className="text-[10px] text-slate-400 font-medium">UID Reference: #{policy.user_id}</span>
+                                                    </td>
+                                                    <td className="p-5 font-bold text-slate-700">
+                                                        <span className="block">{policy.type}</span>
+                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{policy.model}</span>
+                                                    </td>
+                                                    <td className="p-5 font-black text-slate-900">
+                                                        {policy.decrypted_premium ? (
+                                                            policy.decrypted_premium
+                                                        ) : (
+                                                            `₱${Number(policy.premium || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                                        )}
+                                                    </td>
+                                                    <td className="p-5">
+                                                        <span className={`px-3 py-1 text-[10px] font-black rounded-full uppercase tracking-wider ${policy.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : policy.status === 'PENDING' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {policy.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="5" className="p-12 text-center text-slate-400 uppercase tracking-widest font-black text-[10px]">
+                                                    <SearchX size={32} className="mx-auto mb-2 text-slate-300" /> No records matched query parameters.
+                                                </td>
+                                            </tr>
+                                        )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    )}
                 </div>
             </main>
         </div>
     );
 };
 
-const StatCard = ({ label, value, sub, color }) => {
-    const colors = { blue: 'border-l-blue-600', orange: 'border-l-orange-500', green: 'border-l-green-500' };
-    return (
-        <div className={`bg-white p-6 rounded-3xl border border-slate-200 border-l-4 ${colors[color]} shadow-sm`}>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-            <p className="text-3xl font-black text-slate-900 mb-1">{value}</p>
-            <p className="text-xs text-slate-500 font-bold">{sub}</p>
+const StatCard = ({ title, value, icon, trend }) => (
+    <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-md transition-all group h-full">
+        <div className="flex justify-between items-start mb-4">
+            <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">{icon}</div>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter bg-slate-100 px-2 py-1 rounded-lg">Live</span>
         </div>
-    );
-};
-
-const ActionButton = ({ label, linkTo }) => (
-    <Link to={linkTo} className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-blue-600 hover:shadow-xl hover:shadow-blue-900/5 transition group text-center">
-        <div className="w-12 h-12 bg-slate-100 rounded-full group-hover:bg-blue-50 transition flex items-center justify-center">
-            <div className="w-5 h-5 bg-slate-300 rounded-full group-hover:bg-blue-400 transition-colors"></div>
+        <div className="space-y-1">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</div>
+            <p className="text-2xl font-black text-slate-900 italic leading-none">{value}</p>
         </div>
-        <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase">{label}</span>
-    </Link>
-);
-
-const PolicyItem = ({ title, id, status }) => (
-    <div className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition cursor-pointer group">
-        <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 transition-colors">
-                <FileText size={20} />
-            </div>
-            <div>
-                <p className="font-bold text-slate-900 text-sm">{title}</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase">{id}</p>
-            </div>
-        </div>
-        <div className="flex items-center gap-4 text-right">
-            <span className="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-black rounded-full uppercase tracking-widest">{status}</span>
-            <ChevronRight size={16} className="text-slate-300" />
-        </div>
-    </div>
-);
-
-const ActivityItem = ({ text, time }) => (
-    <div className="flex gap-4">
-        <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0 ring-4 ring-blue-50"></div>
-        <div>
-            <p className="text-xs font-bold text-slate-800 leading-tight">{text}</p>
-            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">{time}</p>
+        <div className="mt-4 flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{trend}</p>
         </div>
     </div>
 );

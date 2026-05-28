@@ -61,9 +61,6 @@ const PoliciesLanding = () => {
                                     </li>
                                 ))}
                             </ul>
-                            <Link to="/login" className="flex items-center gap-2 text-blue-600 font-bold text-sm group-hover:gap-4 transition-all">
-                                Learn More <ArrowRight size={18} />
-                            </Link>
                         </div>
                     ))}
                 </div>
@@ -73,7 +70,7 @@ const PoliciesLanding = () => {
                         <h2 className="text-3xl font-black">Not sure what you need?</h2>
                         <p className="text-blue-100 max-w-xl mx-auto">Our advisors are ready to help you build a custom protection plan that fits your budget and needs.</p>
                         <button className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all">
-                            Talk to an Expert
+                            Get Started
                         </button>
                     </div>
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>

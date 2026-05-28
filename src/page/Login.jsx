@@ -1,90 +1,152 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, User } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Eye, EyeOff, Lock, User, AlertCircle, ShieldCheck } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Login = () => {
     const navigate = useNavigate();
-    const [showPassword, setShowPassword] = useState(false);
+    const location = useLocation();
+    const { login } = useContext(AuthContext);
 
-    const handleLogin = (e) => {
+    const [showPassword, setShowPassword] = useState(false);
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (location.state?.message) {
+            setSuccessMsg(location.state.message);
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
+
+    const handleLogin = async (e) => {
         e.preventDefault();
-        // Frontend logic: kahit walang input, papasok na ito sa dashboard
-        navigate('/dashboard');
+        setLoading(true);
+        setError('');
+
+        try {
+            const response = await fetch('http://localhost/insurance-api/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username,
+                    password
+                })
+            });
+
+            const data = await response.json();
+            console.log("LOGIN RESPONSE:", data);
+
+            if (response.ok && data.success) {
+
+                login({
+                    id: data.id,
+                    full_name: data.full_name,
+                    role: data.role.toLowerCase()
+                });
+
+                navigate(
+                    data.role.toLowerCase() === 'admin'
+                        ? '/dashboard'
+                        : '/client-dashboard'
+                );
+
+            } else {
+                setError(data.message || 'Invalid credentials');
+            }
+
+        } catch (err) {
+            console.log(err);
+            setError('Cannot connect to server.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-            <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
-                <div className="p-10">
-                    <div className="text-center mb-10 space-y-2">
-                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-4 shadow-lg shadow-blue-100">
-                            <span className="text-3xl font-black">I</span>
-                        </div>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Client Portal</h2>
-                        <p className="text-sm text-slate-500 font-medium tracking-tight">Access your insurance dashboard</p>
-                    </div>
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+            <div className="max-w-md w-full bg-white rounded-[2rem] shadow-2xl border border-slate-200">
 
-                    <form className="space-y-6" onSubmit={handleLogin}>
-                        {/* Username Field */}
-                        <div className="space-y-2">
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Username / Email</label>
-                            <div className="relative group">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+                <div className="p-10">
+
+                    <h2 className="text-2xl font-black text-center uppercase">Access Portal</h2>
+
+                    {successMsg && (
+                        <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-xl flex items-center gap-2">
+                            <ShieldCheck size={16} />
+                            {successMsg}
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-xl flex items-center gap-2">
+                            <AlertCircle size={16} />
+                            {error}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleLogin} className="mt-6 space-y-5">
+
+                        <div>
+                            <label className="text-xs font-bold uppercase">Email</label>
+                            <div className="relative mt-1">
+                                <User className="absolute left-3 top-3 text-gray-400" size={18} />
                                 <input
-                                    type="text"
-                                    className="w-full pl-12 pr-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 font-medium text-sm shadow-sm"
-                                    placeholder="n.john@email.com"
+                                    type="email"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="w-full pl-10 p-3 border rounded-xl"
+                                    placeholder="admin@insureguard.com"
+                                    required
                                 />
                             </div>
                         </div>
 
-                        {/* Password Field */}
-                        <div className="space-y-2">
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Password</label>
-                            <div className="relative group">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+                        <div>
+                            <label className="text-xs font-bold uppercase">Password</label>
+                            <div className="relative mt-1">
+                                <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
+
                                 <input
-                                    type={showPassword ? "text" : "password"}
-                                    className="w-full pl-12 pr-12 py-4 rounded-2xl bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-slate-300 font-medium text-sm shadow-sm"
-                                    placeholder="••••••••••••"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full pl-10 pr-10 p-3 border rounded-xl"
+                                    placeholder="••••••••"
+                                    required
                                 />
+
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    className="absolute right-3 top-3 text-gray-500"
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between px-1">
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                />
-                                <span className="text-xs font-bold text-slate-500 group-hover:text-slate-700 transition-colors">Remember me</span>
-                            </label>
-                            <button type="button" className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest">
-                                Forgot Password?
-                            </button>
-                        </div>
-
                         <button
                             type="submit"
-                            className="w-full bg-slate-900 hover:bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-slate-200 transition-all active:scale-[0.98] mt-4 uppercase text-[10px] tracking-[0.2em]"
+                            disabled={loading}
+                            className="w-full bg-black text-white py-3 rounded-xl font-bold uppercase"
                         >
-                            Sign In to Account
+                            {loading ? 'Logging in...' : 'Login'}
                         </button>
+
                     </form>
 
-                    <div className="mt-10 text-center">
-                        <p className="text-xs font-bold text-slate-400">
-                            Don't have an account? <button className="text-blue-600 hover:underline">Contact your agent</button>
-                        </p>
-                    </div>
+                    <p className="text-center mt-6 text-xs">
+                        No account? <Link to="/register" className="text-blue-600">Register</Link>
+                    </p>
+
                 </div>
+
             </div>
         </div>
     );
