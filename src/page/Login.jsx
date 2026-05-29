@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Lock, User, AlertCircle, ShieldCheck } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import CryptoJS from "crypto-js";
 
 const Login = () => {
     const navigate = useNavigate();
@@ -22,6 +23,35 @@ const Login = () => {
         }
     }, [location]);
 
+    const SECRET = CryptoJS.SHA256("u9X!d2@kL0pQ7zWmR4tY8vBnC3sA6fGh");
+    const IV = "1234567890123456";
+
+    const encryptPayload = (data) => {
+        return CryptoJS.AES.encrypt(
+            JSON.stringify(data),
+            SECRET,
+            {
+                iv: CryptoJS.enc.Utf8.parse(IV),
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            }
+        ).toString();
+    };
+
+    const decryptResponse = (payload) => {
+        const decrypted = CryptoJS.AES.decrypt(
+            payload,
+            SECRET,
+            {
+                iv: CryptoJS.enc.Utf8.parse(IV),
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            }
+        );
+
+        return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
+    };
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -34,15 +64,22 @@ const Login = () => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    username,
-                    password
+                    payload: encryptPayload({
+                        username,
+                        password
+                    })
                 })
             });
 
-            const data = await response.json();
-            console.log("LOGIN RESPONSE:", data);
+            const encrypted = await response.json();
 
-            if (response.ok && data.success) {
+            if (!encrypted.payload) {
+                throw new Error("No payload returned");
+            }
+
+            const data = decryptResponse(encrypted.payload);
+
+            if (data.success) {
 
                 login({
                     id: data.id,

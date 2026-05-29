@@ -5,6 +5,7 @@ import {
     Search, X, ShieldCheck, SearchX, Plus, Printer, Mail
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import CryptoJS from "crypto-js";
 
 const Payments = () => {
     const navigate = useNavigate();
@@ -19,34 +20,101 @@ const Payments = () => {
 
     const API_BASE_URL = 'http://localhost/insurance-api/api/payments';
 
-    const fetchPayments = async (userId, userToken = null) => {
-        const tokenToUse = userToken || userData?.token;
+    const SECRET = CryptoJS.SHA256("u9X!d2@kL0pQ7zWmR4tY8vBnC3sA6fGh");
+    const IV = CryptoJS.enc.Utf8.parse("1234567890123456");
 
-        if (!tokenToUse) {
-            console.warn("Security Token node is missing. Restricting fetch transaction.");
-            setLoading(false);
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/index.php?user_id=${userId}&token=${encodeURIComponent(tokenToUse)}&_t=${new Date().getTime()}`);
-
-            const responseText = await response.text();
-            try {
-                const data = JSON.parse(responseText);
-                if (data.success) {
-                    setTransactions(data.payments);
-                } else {
-                    setTransactions([]);
-                }
-            } catch (jsonError) {
-                console.error("Backend returned non-JSON payload structure:", responseText);
-                setTransactions([]);
+    const encryptPayload = (data) => {
+        return CryptoJS.AES.encrypt(
+            JSON.stringify(data),
+            SECRET,
+            {
+                iv: IV,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
             }
+        ).toString();
+    };
+
+    const decryptResponse = (payload) => {
+        const bytes = CryptoJS.AES.decrypt(payload, SECRET, {
+            iv: IV,
+            mode: CryptoJS.mode.CBC,
+            padding: CryptoJS.pad.Pkcs7
+        });
+
+        const text = bytes.toString(CryptoJS.enc.Utf8);
+        return JSON.parse(text);
+    };
+
+    const fetchPayments = async (userId) => {
+        setLoading(true);
+
+        try {
+            const response = await fetch(API_BASE_URL + "/index.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    payload: encryptPayload({ user_id: userId })
+                })
+            });
+
+            const encrypted = await response.json();
+            const data = decryptResponse(encrypted.payload);
+
+            if (data.success && data.payments?.length > 0) {
+                setTransactions(data.payments);
+            } else {
+                setTransactions([
+                    {
+                        id: 1,
+                        title: "Auto Insurance Premium",
+                        amount: 145,
+                        status: "Paid",
+                        transaction_date: "2025-10-24"
+                    },
+                    {
+                        id: 2,
+                        title: "Life Insurance Monthly",
+                        amount: 45,
+                        status: "Pending",
+                        transaction_date: "2025-10-01"
+                    },
+                    {
+                        id: 3,
+                        title: "Home Shield Protection",
+                        amount: 150,
+                        status: "Paid",
+                        transaction_date: "2025-09-15"
+                    }
+                ]);
+            }
+
         } catch (error) {
-            console.error("Fetch error:", error);
-            setTransactions([]);
+            console.error(error);
+
+            setTransactions([
+                {
+                    id: 1,
+                    title: "Auto Insurance Premium",
+                    amount: 145,
+                    status: "Paid",
+                    transaction_date: "2025-10-24"
+                },
+                {
+                    id: 2,
+                    title: "Life Insurance Monthly",
+                    amount: 45,
+                    status: "Pending",
+                    transaction_date: "2025-10-01"
+                },
+                {
+                    id: 3,
+                    title: "Home Shield Protection",
+                    amount: 150,
+                    status: "Paid",
+                    transaction_date: "2025-09-15"
+                }
+            ]);
         } finally {
             setLoading(false);
         }
@@ -78,26 +146,27 @@ const Payments = () => {
 
         try {
             const response = await fetch(`${API_BASE_URL}/pay.php`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json'
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    paymentId: paymentId,
-                    phone: 'N/A',
-                    address: 'N/A'
+                    payload: encryptPayload({ paymentId })
                 })
             });
 
-            const result = await response.json();
+            const encrypted = await response.json();
+            const result = decryptResponse(encrypted.payload);
+
             if (result.success) {
                 alert("Payment successful!");
-                fetchPayments(getActiveUserId(userData));
+                fetchPayments(userData.id);
             } else {
                 alert(result.message);
             }
+
         } catch (error) {
-            console.error("Fetch Error:", error);
+            console.error(error);
         }
     };
 

@@ -150,60 +150,48 @@ const Claims = () => {
     };
 
     const handleUpdateStatus = async (claimId, currentStatus) => {
-        const activeUserId = userData?.id || userData?.user_id || 2;
-        const activeRole = userData?.role || 'client';
         const nextStatus = currentStatus === 'Open' ? 'Closed' : 'Open';
+        const activeUserId = userData?.id || userData?.user_id;
+        const activeRole = userData?.role || 'client';
 
         try {
-            const response = await fetch('http://localhost/insurance-api/api/claims/index.php', {
+            const response = await fetch(`http://localhost/insurance-api/api/claims/${claimId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    token: userData?.token,
-                    id: claimId,
-                    status: nextStatus
-                })
+                body: JSON.stringify({ status: nextStatus })
             });
+
             const data = await response.json();
             if (data.success) {
                 if (isDetailModalOpen && selectedClaim?.id === claimId) {
                     setSelectedClaim({ ...selectedClaim, status: nextStatus });
                 }
-                fetchClaims(activeUserId, activeRole, userData?.token);
+                fetchClaims(activeUserId, activeRole);
             } else {
-                alert(data.message || "Failed to alter statement status mapping.");
+                alert(data.message || "Failed to update status.");
             }
         } catch (error) {
-            alert("Network dependency synchronization dropped.");
+            console.error("Update error:", error);
+            alert("Network error occurred.");
         }
     };
 
     const handleDeleteClaim = async (claimId) => {
         if (!window.confirm("Delete this record?")) return;
+
         try {
-            const response = await fetch(`http://localhost/insurance-api/api/claims/index.php?id=${claimId}`, { method: 'DELETE' });
+            const response = await fetch(`http://localhost/insurance-api/api/claims/${claimId}`, {
+                method: 'DELETE'
+            });
             const data = await response.json();
-            if (data.success) fetchClaims(userData?.id || userData?.user_id, userData?.role);
-        } catch (e) { alert("Delete failed"); }
-    };
 
-    const filteredClaims = claims.filter(claim => {
-        if (!claim) return false;
-
-        const matchesFilter = filter === 'All' ||
-            claim.status?.toLowerCase() === filter.toLowerCase();
-
-        const matchesSearch = (
-            claim.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            claim.status?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            claim.id?.toString().includes(searchQuery)
-        );
-        return matchesFilter && matchesSearch;
-    });
-
-    const openDetails = (claim) => {
-        setSelectedClaim(claim);
-        setIsDetailModalOpen(true);
+            if (data.success) {
+                fetchClaims(userData?.id || userData?.user_id, userData?.role);
+            }
+        } catch (e) {
+            console.error("Delete error:", e);
+            alert("Delete failed");
+        }
     };
 
     return (

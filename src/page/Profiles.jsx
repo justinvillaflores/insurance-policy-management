@@ -88,7 +88,6 @@ const Profiles = () => {
                 full_name: `${formData.first_name} ${formData.middle_name} ${formData.last_name}`
             };
 
-            /* 🔐 ENCRYPT (FIXED FORMAT) */
             const encryptedPayload = CryptoJS.AES.encrypt(
                 JSON.stringify(payload),
                 CryptoJS.enc.Utf8.parse(SECRET),
@@ -113,7 +112,6 @@ const Profiles = () => {
 
             const json = await response.json();
 
-            /* 🔓 DECRYPT RESPONSE (FIXED) */
             const bytes = CryptoJS.AES.decrypt(
                 json.payload,
                 CryptoJS.enc.Utf8.parse(SECRET),
